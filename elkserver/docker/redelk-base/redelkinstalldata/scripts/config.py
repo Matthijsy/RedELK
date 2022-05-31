@@ -70,6 +70,11 @@ alarms = {
         'ibm_basic_auth': '',  # IBM X-Force API (can be retreived from a sample call on their swagger test site)
         'ha_api_key': ''  # Hybrid Analysis API
     },
+    'alarm_geolocation': {
+        'enabled': False,
+        'interval': 300,
+        'backoff': 3600 * 2,
+    },
     'alarm_httptraffic': {
         'enabled': False,
         'interval': 310,
