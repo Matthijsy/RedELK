@@ -12,7 +12,7 @@ import datetime
 import logging
 
 from modules.helpers import (add_tags_by_query, get_initial_alarm_result,
-                             get_value, raw_search)
+                             get_value, raw_search, pprint)
 
 info = {
     'version': 0.1,
@@ -41,14 +41,10 @@ class Module():
         ip_lists = self.get_iplists()
         self.logger.debug('IP Lists: %s', ip_lists)
 
-        # 2. Get all entries in redirtraffic that have not the enrich_iplist tag
-        redirtraffic = self.get_redirtraffic()
-
-        # 3. loop through each result and find all IPs that matches in redirtraffic
+        # 2. Update all records with the correct iplist tag, based on the source.ip
         res = self.update_traffic(ip_lists)
 
-        # 4. Return all hits so they can be tagged
-        ret['hits']['hits'] = redirtraffic
+        # 4. Return total hits for the stats
         ret['hits']['total'] = res
 
         self.logger.info('finished running module. result: %s hits', ret['hits']['total'])
@@ -77,67 +73,40 @@ class Module():
 
         return ip_lists
 
-    def get_redirtraffic(self):
-        """ Get all redirtraffic before 'now' that were not processed by previous run of the module """
-        es_query = {
-            'sort': [{'@timestamp': {'order': 'desc'}}],
-            'query': {
-                'bool': {
-                    'filter': [
-                        {
-                            'range':  {
-                                '@timestamp': {
-                                    'lte': self.now.isoformat()
-                                }
-                            }
-                        }
-                    ],
-                    'must_not': [{'match': {'tags': info['submodule']}}]
-                }
-            }
-        }
-
-        es_results = raw_search(es_query, index='redirtraffic-*')
-
-        self.logger.debug(es_results)
-
-        if es_results is None:
-            return []
-        return es_results['hits']['hits']
-
     def update_traffic(self, ip_lists):
         """ Update the documents """
         updated_count = 0
 
         # 1. Loop through each IP list
-        for iplist_name in ip_lists:
-            ip_match = []
+        for iplist_name, ips in ip_lists.items():
             iplist_tag = f'iplist_{iplist_name}'
-
-            #  pylint: disable=invalid-name
-            for ip in ip_lists[iplist_name]:
-                ip_match.append({'match': {'source.ip': ip}})
+            ip_match = [{"match": {"source.ip": ip}} for ip in ips]
 
             es_query = {
                 'bool': {
                     'must_not': [{'match': {'tags': iplist_tag}}],
                     'should': ip_match,
-                    'filter': [
-                        {
-                            'range':  {
-                                '@timestamp': {
-                                    'lte': self.now.isoformat()
-                                }
-                            }
-                        }
-                    ],
                     'minimum_should_match': 1
                 }
             }
 
             self.logger.debug('Tagging IPs matching IP list %s', iplist_name)
-            # 2. For each IP list, update all documents not tagged already
-            es_results = add_tags_by_query([iplist_tag], es_query, 'redirtraffic-*')
+            # 2. For each IP list, update all documents not tagged already,
+            # add the iplist tag and the 'enrich_iplist' tag
+            es_results = add_tags_by_query([iplist_tag, info['submodule']], es_query, 'redirtraffic-*')
             updated_count += es_results['updated']
+
+        # 2. Tag all records that have another source.ip with 'enrich_iplist'
+        ip_match = [{"match": {"source.ip": ip}} for ip in sum(ip_lists.values(), [])]
+        es_query = {
+            'bool': {
+                'must_not': [
+                    {'match': {'tags': info['submodule']}},
+                ] + ip_match,
+                'minimum_should_match': 1
+            }
+        }
+        add_tags_by_query([info['submodule']], es_query, 'redirtraffic-*')
+
 
         return updated_count

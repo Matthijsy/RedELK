@@ -29,7 +29,6 @@ class Module():  # pylint: disable=too-few-public-methods
 
     def send_alarm(self, alarm):
         """ Send the alarm notification """
-        print(alarm)
         description = alarm['info']['description']
         if len(alarm['groupby']) > 0:
             description += f'\n _Please note that the items below have been grouped by: {alarm["groupby"]}_'
@@ -61,6 +60,15 @@ class Module():  # pylint: disable=too-few-public-methods
                 text = f"*Alarm on item: {title.strip()}*\n\t"
                 for field in alarm['fields']:
                     val = get_value(f'_source.{field}', hit)
+
+                    if field in ['alarm.alarm_filehash']:
+                        if val.get('VirusTotal'):
+                            val['VirusTotal'] = {
+                                "first_submitted": val['VirusTotal']['first_submitted'],
+                                "last_seen": val['VirusTotal']['last_seen'],
+                                "link": val['VirusTotal']['record']['data']['links']['self'],
+
+                            }
                     # Add a tab to every line of values
                     pretty_val = ''.join([f'{line}\n\t' for line in pprint(val).split('\n')])
                     text += f"*{field}*: {pretty_val}"
@@ -83,6 +91,10 @@ class Module():  # pylint: disable=too-few-public-methods
         res = webhook.send(text=f'',
                            blocks=blocks)
 
-        if 200 < res.status_code < 299:
+        # print(res.status_code)
+        # print(res.body)
+        # print(200 < res.status_code < 299)
+
+        if not (200 <= res.status_code <= 299):
             self.logger.error(f"Informing slack failed: {res.status_code} {res.body}")
             self.logger.error(alarm)

@@ -108,15 +108,15 @@ class Module():
             'sort': [{'@timestamp': {'order': 'desc'}}],
             'query': {
                 'bool': {
-                    'filter': [
-                        {
-                            'range':  {
-                                '@timestamp': {
-                                    'lte': iplist_lastrun.isoformat()
-                                }
-                            }
-                        }
-                    ],
+                    # 'filter': [
+                    #     {
+                    #         'range':  {
+                    #             '@timestamp': {
+                    #                 'lte': iplist_lastrun.isoformat()
+                    #             }
+                    #         }
+                    #     }
+                    # ],
                     'must_not': [
                         {'match': {'tags': info['submodule']}}
                     ]
@@ -131,6 +131,7 @@ class Module():
 
         # For each IP, check if it is in tor exit node data
         hits = []
+
         for not_e in not_enriched:
             ip = get_value('_source.source.ip', not_e)  # pylint: disable=invalid-name
             if ip in iplist:

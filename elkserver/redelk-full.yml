@@ -198,7 +198,8 @@ services:
 
   base:
     container_name: redelk-base
-    image: ${REDELKREPO}/redelk-base:${REDELKVERSION}
+#    image: ${REDELKREPO}/redelk-base:${REDELKVERSION}
+    build: ./docker/redelk-base
     networks:
       - net
     volumes:
