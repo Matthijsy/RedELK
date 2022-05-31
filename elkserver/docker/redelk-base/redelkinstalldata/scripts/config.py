@@ -75,6 +75,11 @@ alarms = {
         'interval': 310,
         'notify_interval': 86400  # Only notify on the same IP hit every 24h by default
     },
+    'alarm_suspicious_beacon': {
+        'enabled': False,
+        'interval': 310,
+        'backoff': 3600 * 2
+    },
     'alarm_useragent': {
         'enabled': False,
         'interval': 320
